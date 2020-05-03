@@ -2,28 +2,20 @@
 #include <iostream>
 #include <string>
 
-void read_data(boost::asio::ip::tcp::socket& socket, std::mutex& mutex, std::string name) {
-	while (true) {
-		boost::asio::streambuf buf;
-		boost::asio::read_until(socket, buf, '\n');
-		std::string msg;
-		std::istream input_stream(&buf);
-		std::getline(input_stream, msg, '\n');
-		{
-			std::lock_guard lock(mutex);
-			std::cout << name << ": " << msg << std::endl;
-		}
-	}
-}
-
-std::string read_name(boost::asio::ip::tcp::socket& socket) {
+std::string read_data(boost::asio::ip::tcp::socket& socket) {
 	boost::asio::streambuf buf;
 	boost::asio::read_until(socket, buf, '\n');
-	std::string name;
+	std::string msg;
 	std::istream input_stream(&buf);
-	std::getline(input_stream, name, '\n');
+	std::getline(input_stream, msg, '\n');
 
-	return name;
+	return msg;
+}
+
+void read_all(boost::asio::ip::tcp::socket& socket, std::string name) {
+	while (true) {
+		std::cout << name << ": " << read_data(socket) << std::endl;
+	}
 }
 
 int main() {
@@ -39,13 +31,12 @@ int main() {
 
 	/* exchange of names */
 	std::string name;
-	std::mutex mutex;
 	std::cout << "Please, enter your name: ";
 	std::getline(std::cin, name);
 	boost::asio::write(socket, boost::asio::buffer(name + '\n'));
 
 	/* working */
-	std::thread thread{ read_data, std::ref(socket), std::ref(mutex), read_name(std::ref(socket)) };
+	std::thread thread{ read_all, std::ref(socket), read_data(socket) };
 	std::string msg;
 	while (std::getline(std::cin, msg)) {
 		boost::asio::write(socket, boost::asio::buffer(msg + '\n'));
